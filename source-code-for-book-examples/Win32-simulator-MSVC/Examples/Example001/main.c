@@ -1,57 +1,3 @@
-/*
-    FreeRTOS V9.0.0 - Copyright (C) 2016 Real Time Engineers Ltd.
-    All rights reserved
-
-    VISIT http://www.FreeRTOS.org TO ENSURE YOU ARE USING THE LATEST VERSION.
-
-    This file is part of the FreeRTOS distribution.
-
-    FreeRTOS is free software; you can redistribute it and/or modify it under
-    the terms of the GNU General Public License (version 2) as published by the
-    Free Software Foundation >>!AND MODIFIED BY!<< the FreeRTOS exception.
-
-    ***************************************************************************
-    >>!   NOTE: The modification to the GPL is included to allow you to     !<<
-    >>!   distribute a combined work that includes FreeRTOS without being   !<<
-    >>!   obliged to provide the source code for proprietary components     !<<
-    >>!   outside of the FreeRTOS kernel.                                   !<<
-    ***************************************************************************
-
-    FreeRTOS is distributed in the hope that it will be useful, but WITHOUT ANY
-    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-    FOR A PARTICULAR PURPOSE.  Full license text is available on the following
-    link: http://www.freertos.org/a00114.html
-
-    http://www.FreeRTOS.org/FAQHelp.html - Having a problem?  Start by reading
-    the FAQ page "My application does not run, what could be wrong?".  Have you
-    defined configASSERT()?
-
-    http://www.FreeRTOS.org/support - In return for receiving this top quality
-    embedded software for free we request you assist our global community by
-    participating in the support forum.
-
-    http://www.FreeRTOS.org/training - Investing in training allows your team to
-    be as productive as possible as early as possible.  Now you can receive
-    FreeRTOS training directly from Richard Barry, CEO of Real Time Engineers
-    Ltd, and the world's leading authority on the world's leading RTOS.
-
-    http://www.FreeRTOS.org/plus - A selection of FreeRTOS ecosystem products,
-    including FreeRTOS+Trace - an indispensable productivity tool, a DOS
-    compatible FAT file system, and our tiny thread aware UDP/IP stack.
-
-    http://www.FreeRTOS.org/labs - Where new FreeRTOS products go to incubate.
-    Come and try FreeRTOS+TCP, our new open source TCP/IP stack for FreeRTOS.
-
-    http://www.OpenRTOS.com - Real Time Engineers ltd. license FreeRTOS to High
-    Integrity Systems ltd. to sell under the OpenRTOS brand.  Low cost OpenRTOS
-    licenses offer ticketed support, indemnification and commercial middleware.
-
-    http://www.SafeRTOS.com - High Integrity Systems also provide a safety
-    engineered and independently SIL3 certified version for use in safety and
-    mission critical applications that require provable dependability.
-
-    1 tab == 4 spaces!
-*/
 
 /* FreeRTOS.org includes. */
 #include "FreeRTOS.h"
@@ -76,22 +22,23 @@ typedef StaticQueue_t osStaticMessageQDef_t;
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 #define DEPARTMENTS_NUM 4
-#define MAX_NUM_REQUESTED_VEHICLES 5
+#define MAX_NUM_REQUESTED_VEHICLES 10
+#define MAX_SR_HANDLES 10 // max number of handles for sr threads in each department
 
 #define INIT_POLICE_NUM 10
 #define INIT_AMBULANCE_NUM 10
 #define INIT_FIRE_NUM 10
 #define INIT_CORONA_NUM 10
-#define CORONA_CONCURRENT_NUM 4
-#define AMBULANCE_CONCURRENT_NUM 4
-#define POLICE_CONCURRENT_NUM 3
-#define FIRE_CONCURRENT_NUM 2
+#define CORONA_CONCURRENT_NUM 10
+#define AMBULANCE_CONCURRENT_NUM 10
+#define POLICE_CONCURRENT_NUM 10
+#define FIRE_CONCURRENT_NUM 10
 #define INIT_DISPATCHER_SIZE 50
-#define DISPATCH_INIT_BUFF_SIZE_BYTES 1024
-#define AMBULANCE_INIT_BUFF_SIZE_BYTES 1024
-#define FIRE_INIT_BUFF_SIZE_BYTES 1024
-#define CORONA_INIT_BUFF_SIZE_BYTES 1024
-#define POLICE_INIT_BUFF_SIZE_BYTES 1024
+#define DISPATCH_INIT_BUFF_SIZE_BYTES 10
+#define AMBULANCE_INIT_BUFF_SIZE_BYTES 10
+#define FIRE_INIT_BUFF_SIZE_BYTES 10
+#define CORONA_INIT_BUFF_SIZE_BYTES 10
+#define POLICE_INIT_BUFF_SIZE_BYTES 10
 #define LOG_TIMER_INTERVAL 1000
 #define DISPATCH_QUEUE_TIMEOUT portMAX_DELAY
 #define POLICE_QUEUE_TIMEOUT portMAX_DELAY
@@ -127,40 +74,36 @@ typedef StaticQueue_t osStaticMessageQDef_t;
 #define CORONA_THREAD_PRIORITY (1)
 #define CORONA_THREAD_BUFFER_SIZE (128)
 
-#define AMBULANCE_SR_THREAD_PRIORITY (1)
+#define AMBULANCE_SR_THREAD_PRIORITY (2)
 #define AMBULANCE_SR_THREAD_BUFFER_SIZE (128)
 
-#define POLICE_SR_THREAD_PRIOIRTY (1)
+#define POLICE_SR_THREAD_PRIORITY (2)
 #define POLICE_SR_THREAD_BUFFER_SIZE (128)
 
-#define CORONA_SR_THREAD_PRIOIRTY (1)
+#define CORONA_SR_THREAD_PRIORITY (2)
 #define CORONA_SR_THREAD_BUFFER_SIZE (128)
 
-#define FIRE_SR_THREAD_PRIOIRTY (1)
+#define FIRE_SR_THREAD_PRIORITY (2)
 #define FIRE_SR_THREAD_BUFFER_SIZE (128)
 
 #define SEMAPHORE_WAIT_TIME portMAX_DELAY
 
-TaskFunction_t loggingStartThread(void* argument);
+//TaskFunction_t loggingStartThread(void* argument);
 
-TaskFunction_t timerCallback(void* argument);
+//TaskFunction_t timerCallback(void* argument);
 TaskFunction_t ServiceRoutine(void* req);
 
 TaskFunction_t departmentTask(void* argument);
 
 TaskFunction_t dispatchTask(void* argument);
 TaskFunction_t generateTask(void* argument);
-void releaseResources(int i, department_id depar_id);
 
 
 
 uint32_t totalVehicles = MAX_NUM_REQUESTED_VEHICLES;
-uint32_t coronaConNum = CORONA_CONCURRENT_NUM;
-uint32_t policeConNum = POLICE_CONCURRENT_NUM;
-uint32_t fireConNum = FIRE_CONCURRENT_NUM;
-uint32_t ambulanceConNum = AMBULANCE_CONCURRENT_NUM;
 
-BaseType_t department_thread_priority[DEPARTMENTS_NUM] = { POLICE_THREAD_PRIORITY, FIRE_THREAD_PRIORITY, AMBULANCE_THREAD_PRIORITY, CORONA_THREAD_PRIORITY };
+
+BaseType_t department_thread_priority[DEPARTMENTS_NUM] = { POLICE_SR_THREAD_PRIORITY, FIRE_SR_THREAD_PRIORITY, AMBULANCE_SR_THREAD_PRIORITY, CORONA_SR_THREAD_PRIORITY };
 typedef enum {
     POLICE,
     FIRE,
@@ -178,12 +121,14 @@ typedef struct {
 typedef struct {
     department_id dep_id;
     uint8_t requested_vehicles;
-    TickType_t time_to_complete;
+    uint32_t time_to_complete;
 }request;
 
 typedef struct {
     uint8_t available_num;
 }dispatcher_data;
+void releaseResources(int i, department_id depar_id);
+
 department_data police_dep = { INIT_POLICE_NUM, POLICE_CONCURRENT_NUM, POLICE_CONCURRENT_NUM };
 department_data fire_dep = { INIT_FIRE_NUM, FIRE_CONCURRENT_NUM, FIRE_CONCURRENT_NUM };
 department_data ambulance_dep = { INIT_AMBULANCE_NUM, AMBULANCE_CONCURRENT_NUM, AMBULANCE_CONCURRENT_NUM };
@@ -244,7 +189,7 @@ QueueHandle_t CoronaQueueHandle;
 QueueHandle_t department_queue_handles_lists[DEPARTMENTS_NUM];
 TickType_t QueueTimeoutList[DEPARTMENTS_NUM] = { POLICE_QUEUE_TIMEOUT,FIRE_QUEUE_TIMEOUT,AMBULANCE_QUEUE_TIMEOUT,CORONA_QUEUE_TIMEOUT };
 
-TaskFunction_t loggingStartThread(void* argument);
+//TaskFunction_t loggingStartThread(void* argument);
 SemaphoreHandle_t semaphoreList[DEPARTMENTS_NUM];
 
 int main(void)
@@ -259,58 +204,75 @@ int main(void)
         MIN(POLICE_CONCURRENT_NUM, INIT_POLICE_NUM),
         MIN(POLICE_CONCURRENT_NUM, INIT_POLICE_NUM)
     );
+    printf("police semaphore count: %d\n", uxSemaphoreGetCount(policeSemaphore));
     fireSemaphore = xSemaphoreCreateCounting(
         MIN(FIRE_CONCURRENT_NUM, INIT_FIRE_NUM),
         MIN(FIRE_CONCURRENT_NUM, INIT_FIRE_NUM)
     );
+    printf("fire semaphore count: %d\n", uxSemaphoreGetCount(fireSemaphore));
+
     ambulanceSemaphore = xSemaphoreCreateCounting(
         MIN(AMBULANCE_CONCURRENT_NUM, INIT_AMBULANCE_NUM),
         MIN(AMBULANCE_CONCURRENT_NUM, INIT_AMBULANCE_NUM)
     );
+    printf("ambulance semaphore count: %d\n", uxSemaphoreGetCount(ambulanceSemaphore));
 
     coronaSemaphore = xSemaphoreCreateCounting(
         MIN(CORONA_CONCURRENT_NUM, INIT_CORONA_NUM),
         MIN(CORONA_CONCURRENT_NUM, INIT_CORONA_NUM)
     );
+    printf("corona semaphore count: %d\n", uxSemaphoreGetCount(coronaSemaphore));
 
     globalSemaphore = xSemaphoreCreateCounting(MAX_NUM_REQUESTED_VEHICLES,
         MAX_NUM_REQUESTED_VEHICLES);
+    printf("global semaphore count: %d\n", uxSemaphoreGetCount(globalSemaphore));
 
-    SemaphoreHandle_t semaphoreList[DEPARTMENTS_NUM] = { policeSemaphore,fireSemaphore,ambulanceSemaphore,coronaSemaphore };
+
+    semaphoreList[0] = policeSemaphore;
+    semaphoreList[1] = fireSemaphore;
+
+    semaphoreList[2] = ambulanceSemaphore;
+
+    semaphoreList[3] = coronaSemaphore;
+
+
 
     /* Create the queue(s) */
     /* creation of DispatchQueue */
-    DispatchQueueHandle = xQueueCreate(DISPATCH_INIT_BUFF_SIZE_BYTES, sizeof(uint32_t));
+    DispatchQueueHandle = xQueueCreate(DISPATCH_INIT_BUFF_SIZE_BYTES, sizeof(request));
 
     /* creation of AmbulanceQueue */
-    AmbulanceQueueHandle = xQueueCreate(AMBULANCE_INIT_BUFF_SIZE_BYTES, sizeof(uint32_t));
+    AmbulanceQueueHandle = xQueueCreate(AMBULANCE_INIT_BUFF_SIZE_BYTES, sizeof(request));
 
     /* creation of PoliceQueue */
-    PoliceQueueHandle = xQueueCreate(POLICE_INIT_BUFF_SIZE_BYTES, sizeof(uint32_t));
+    PoliceQueueHandle = xQueueCreate(POLICE_INIT_BUFF_SIZE_BYTES, sizeof(request));
 
     /* creation of FireQueue */
-    FireQueueHandle = xQueueCreate(FIRE_INIT_BUFF_SIZE_BYTES, sizeof(uint32_t));
+    FireQueueHandle = xQueueCreate(FIRE_INIT_BUFF_SIZE_BYTES, sizeof(request));
 
     /* creation of CoronaQueue */
-    CoronaQueueHandle = xQueueCreate(CORONA_INIT_BUFF_SIZE_BYTES, sizeof(uint32_t));
+    CoronaQueueHandle = xQueueCreate(CORONA_INIT_BUFF_SIZE_BYTES, sizeof(request));
 
 
     /* creation of loggingThread */
-    BaseType_t log_thread = xTaskCreate(loggingStartThread, (const char*)"loggingStartThread", (const void*)LOG_THREAD_BUFFER_SIZE, NULL, LOGGING_THREAD_PRIORITY, (const TaskHandle_t*)&loggingThreadHandle);
-
+    //BaseType_t log_thread = xTaskCreate(loggingStartThread, (const char*)"loggingStartThread", (const void*)LOG_THREAD_BUFFER_SIZE, NULL, LOGGING_THREAD_PRIORITY, (const TaskHandle_t*)&loggingThreadHandle);
+    department_id corona_depar = CORONA;
+    department_id fire_depar = FIRE;
+    department_id police_depar = POLICE;
+    department_id ambulance_depar = AMBULANCE;
     /* USER CODE BEGIN RTOS_THREADS */
     BaseType_t generate_thread = xTaskCreate(generateTask, (const char*)"generateThread", (const void*)GENERATE_THREAD_BUFFER_SIZE, NULL, GENERATE_THREAD_PRIORITY, (const TaskHandle_t*)&generateThreadHandle);
     BaseType_t dispatch_thread = xTaskCreate(dispatchTask, (const char*)"dispatchThread", (const void*)DISPATCH_THREAD_BUFFER_SIZE, NULL, DISPATCH_THREAD_PRIORITY, (const TaskHandle_t*)&dispatchThreadHandle);
 
-    BaseType_t police_thread = xTaskCreate(departmentTask, (const char*)"policeThread", (const void*)POLICE_THREAD_BUFFER_SIZE, POLICE, POLICE_THREAD_PRIORITY, (const TaskHandle_t*)&policeThreadHandle);
+    BaseType_t police_thread = xTaskCreate(departmentTask, (const char*)"policeThread", (const void*)POLICE_THREAD_BUFFER_SIZE, (void*)&police_depar, POLICE_THREAD_PRIORITY, (const TaskHandle_t*)&policeThreadHandle);
 
-    BaseType_t fire_thread = xTaskCreate(departmentTask, (const char*)"fireThread", (const void*)FIRE_THREAD_BUFFER_SIZE, FIRE, FIRE_THREAD_PRIORITY, (const TaskHandle_t*)&fireThreadHandle);
-    BaseType_t ambulnace_thread = xTaskCreate(departmentTask, (const char*)"ambulanceThread", (const void*)AMBULANCE_THREAD_BUFFER_SIZE, AMBULANCE, AMBULANCE_THREAD_PRIORITY, (const TaskHandle_t*)&ambulanceThreadHandle);
-    BaseType_t corona_thread = xTaskCreate(departmentTask, (const char*)"coronaThread", (const void*)CORONA_THREAD_BUFFER_SIZE, CORONA, CORONA_THREAD_PRIORITY, (const TaskHandle_t*)&coronaThreadHandle);
+    BaseType_t fire_thread = xTaskCreate(departmentTask, (const char*)"fireThread", (const void*)FIRE_THREAD_BUFFER_SIZE, (void*)&fire_depar, FIRE_THREAD_PRIORITY, (const TaskHandle_t*)&fireThreadHandle);
+    BaseType_t ambulnace_thread = xTaskCreate(departmentTask, (const char*)"ambulanceThread", (const void*)AMBULANCE_THREAD_BUFFER_SIZE, (void*)&ambulance_depar, AMBULANCE_THREAD_PRIORITY, (const TaskHandle_t*)&ambulanceThreadHandle);
+    BaseType_t corona_thread = xTaskCreate(departmentTask, (const char*)"coronaThread", (const void*)CORONA_THREAD_BUFFER_SIZE, (void*)&corona_depar, CORONA_THREAD_PRIORITY, (const TaskHandle_t*)&coronaThreadHandle);
 
 
     vTaskStartScheduler();
-
+    //never reach here
     while (1)
     {
 
@@ -321,6 +283,8 @@ int main(void)
 
 // @brief: takes request from dispatcher queue and send to relevant department queue
 TaskFunction_t dispatchTask(void* argument) {
+
+
 
     BaseType_t retval_Sent_From_Dispatch_Queue = 0;
     BaseType_t retval_Police_Send = 0;
@@ -336,25 +300,28 @@ TaskFunction_t dispatchTask(void* argument) {
 
 
 
-    request req;
+    request req = { 0 };
     while (1) {
         if ((retval_Sent_From_Dispatch_Queue = xQueueReceive(DispatchQueueHandle, &req, DISPATCH_QUEUE_TIMEOUT)) == pdPASS) {
-
             department_id id = req.dep_id;
 
-            if ((retval_Send_to_dep_list[id] = xQueueSend(department_queue_handles_lists[id], &req, QueueTimeoutList[id])) == pdPASS) {
+            //printf("dispatcher got request: dep_id: %d, requested vehicles: %u, time to comlete: %u\n", req.dep_id, req.requested_vehicles, req.time_to_complete);
+
+
+            if ((retval_Send_to_dep_list[id] = xQueueSendToBack(department_queue_handles_lists[id], &req, QueueTimeoutList[id])) == pdPASS) {
+                //printf("request sent to department!\n");
                 switch (id) {
                 case FIRE:
-                    printf("Fire request was sent to department!\r\n");
+                    //printf("Fire request was sent to department!\r\n");
                     break;
                 case AMBULANCE:
-                    printf("Ambulance request was sent to department!\r\n");
+                    //printf("Ambulance request was sent to department!\r\n");
                     break;
                 case CORONA:
-                    printf("Corona request was sent to department!\r\n");
+                    //printf("Corona request was sent to department!\r\n");
                     break;
                 case POLICE:
-                    printf("Police request was sent to department!\r\n");
+                    //printf("Police request was sent to department!\r\n");
                     break;
                 default:
                     break;
@@ -362,61 +329,68 @@ TaskFunction_t dispatchTask(void* argument) {
 
                 }
             }
+            else {
+                //printf(" dispatcher sending request to department %d failed. time passed or queue is full!\n", (int)id);
+
+            }
+        }
+        else {
+            //printf(" dispatcher couldnt get request. receiving request from main queue was failed. time passed or queue is empty!\n");
+
         }
     }
 }
 
 
 // @brief: this function takes request from department queue and send to execute thread
-TaskFunction_t departmentTask(void* dep_id) //argument is speartment_id
-{
+TaskFunction_t departmentTask(void* dep_id) {//argument is speartment_id
+
     department_id depar_id = *((department_id*)dep_id);
-    TaskHandle_t policeSRHandle;
-    TaskHandle_t ambulanceSRHandle;
-
-    TaskHandle_t fireSRHandle;
-
-    TaskHandle_t coronaSRHandle;
-
+    //printf("entered %d department\n", (int)depar_id);
     BaseType_t retval_SR_thread;
-    request police_req;
-    request ambulance_req;
-    request fire_req;
-    request corona_req;
-    request departments_req_list[DEPARTMENTS_NUM] = { police_req,fire_req,ambulance_req,corona_req };
+    request req;
     int thread_buffer_list[DEPARTMENTS_NUM] = { POLICE_SR_THREAD_BUFFER_SIZE, FIRE_SR_THREAD_BUFFER_SIZE, AMBULANCE_SR_THREAD_BUFFER_SIZE,CORONA_SR_THREAD_BUFFER_SIZE };
-    TaskHandle_t department_SR_handles[DEPARTMENTS_NUM] = { policeSRHandle, fireSRHandle, ambulanceSRHandle, coronaSRHandle };
-
-
+    TaskHandle_t SR_handle_array[MAX_SR_HANDLES] = { 0 };
+    uint8_t sr_handle_index = 0;
 
     while (1)
     {
-        if (xQueueReceive(department_queue_handles_lists[depar_id], (void const*)&departments_req_list[depar_id], QueueTimeoutList[depar_id]) == pdPASS)
+        sr_handle_index %= MAX_SR_HANDLES;
+        if (xQueueReceive(department_queue_handles_lists[depar_id], (void const*)&req, QueueTimeoutList[depar_id]) == pdPASS)
         {
+            printf(" department %d received request\n", (int)depar_id);
             switch (depar_id) {
             case FIRE:
-                printf("Got request from fire department!\r\n");
+                //printf("Got request from fire department sending to SR!\r\n");
                 break;
             case AMBULANCE:
-                printf("Got request from ambulance department!\r\n");
+                //printf("Got request from ambulance department sending to SR!\r\n");
                 break;
             case POLICE:
-                printf("Got request from police department!\r\n");
+                //printf("Got request from police department sending to SR!\r\n");
                 break;
             case CORONA:
-                printf("Got request from corona department!\r\n");
+                //printf("Got request from corona department sending to SR!\r\n");
                 break;
             }
             if ((retval_SR_thread = xTaskCreate(
                 ServiceRoutine,
                 (const char*)"ServiceRoutineThread",
                 thread_buffer_list[depar_id],
-                (void const*)&departments_req_list[depar_id], //request to be passed
+                (void const*)&req, //request to be passed
                 department_thread_priority[depar_id],
-                (const TaskHandle_t*)&department_SR_handles[depar_id])) == pdPASS)
+                NULL/*(const TaskHandle_t*)&SR_handle_array[sr_handle_index]*/)) == pdPASS) //should i add handles to each of task created?
             {
-                printf("New SR!\r\n");
+                //printf("New SR was created!\r\n");
+                sr_handle_index++;
             }
+            else { 
+                //printf("NEW SR failed to be created!\n"); 
+            }
+        }
+        else {
+            //printf("receive request from %d department queue failed. queue empty or time passed!\n", (int)depar_id);
+
         }
     }
 }
@@ -424,27 +398,39 @@ TaskFunction_t departmentTask(void* dep_id) //argument is speartment_id
 TaskFunction_t ServiceRoutine(void* req) {
     request* reques = (request*)req;//
     department_id depar_id = reques->dep_id;
+    int glob_semaphore_count_before_1 = uxSemaphoreGetCount(globalSemaphore);
+
     SemaphoreHandle_t department_semaphore = semaphoreList[depar_id];
-
+    printf("department request %d entered service routine\n", depar_id);
     int i = 0;
+    printf("requested cars: %d, sempahoreglobal: %d, concurrentsemaphore: %d", reques->requested_vehicles, uxSemaphoreGetCount(globalSemaphore), uxSemaphoreGetCount(department_semaphore));
     while (i < reques->requested_vehicles) {
-
+        printf("global sempahore count: %ld, concurrent semaphore count: %ld", uxSemaphoreGetCount(globalSemaphore), uxSemaphoreGetCount(department_semaphore));
+        int glob_semaphore_count_before_2 = uxSemaphoreGetCount(globalSemaphore);
         if (xSemaphoreTake(globalSemaphore, 0) == pdPASS && xSemaphoreTake(semaphoreList[depar_id], 0) == pdPASS) {
-            vTaskPrioritySet(NULL, uxTaskPriorityGet(NULL) + 1);// increases prioirity by one
+            printf("global semaphore and depar semaphore were taken! priority is %d\n", uxTaskPriorityGet(NULL));
+           // vTaskPrioritySet(NULL, uxTaskPriorityGet(NULL) + 1);// increases prioirity by one
             i++;
+            int glob_semaphore_count_before_3 = uxSemaphoreGetCount(globalSemaphore);
             totalVehicles--;
-            department_list[POLICE].available_num--;
-            department_list[POLICE].concurrent_num--;
+            department_list[depar_id].available_num--;
+            department_list[depar_id].concurrent_num--;
             /* in case all resources for execution acquired, exectues, releases all semaphores and end task*/
             if (i == reques->requested_vehicles - 1) {
-                vTaskDelay(reques->time_to_complete);
+                printf("##################################sending vehicles!\n");
+                //vTaskDelay(pdMS_TO_TICKS(reques->time_to_complete));
                 releaseResources(i, depar_id);
+                printf("released resources!\n");
+                int glob_semaphore_count_before_4 = uxSemaphoreGetCount(globalSemaphore);
                 vTaskDelete(NULL);
             }
         }
         else {
-            /* in deadlock releases all semaphores acquired and then start again*/
+            /* in deadlock releases all semaphores acquired and then starts again*/
             releaseResources(i, depar_id);
+           // vTaskPrioritySet(NULL, (UBaseType_t)department_thread_priority[depar_id]);
+            int glob_semaphore_count_before_5 = uxSemaphoreGetCount(globalSemaphore);
+            printf("collision detected, released all semaphores!\n");
             i = 0;
 
 
@@ -456,11 +442,15 @@ TaskFunction_t ServiceRoutine(void* req) {
 
 void releaseResources(int i, department_id depar_id) {
     for (int j = 0; j < i;j++) {
+        int glob_semaphore_count_before = uxSemaphoreGetCount(globalSemaphore);
         xSemaphoreGive(globalSemaphore);
+        int glob_semahpore_count_after = uxSemaphoreGetCount(globalSemaphore);
         xSemaphoreGive(semaphoreList[depar_id]);
+        printf("department semaphore and global were given!\n");
         totalVehicles++;
-        department_list[POLICE].concurrent_num++;
-        department_list[POLICE].available_num++;
+        department_list[depar_id].concurrent_num++;
+        department_list[depar_id].available_num++;
+        printf("released resources of %d department: totalVehicles: %d, concurrent num: %d, availble num: %d\n", depar_id, totalVehicles, department_list[depar_id].concurrent_num, department_list[depar_id].available_num);
         //to add delay time to break symmetry?
     }
 }
@@ -499,11 +489,17 @@ TaskFunction_t generateTask(void* argument)
     BaseType_t retval_Send_To_Dispatch_Queue = 0;
     while (1) {
         department_id dep = rand() % DEPARTMENTS_NUM;
-        TickType_t active_time = rand() % XTICKS_MAX;
-        uint8_t vehicle_num_to_dispatch = rand() % MAX_NUM_REQUESTED_VEHICLES;
-        request req = { dep,active_time,vehicle_num_to_dispatch };
-        if ((retval_Send_To_Dispatch_Queue = xQueueSend(DispatchQueueHandle, &req, DISPATCH_QUEUE_TIMEOUT)) == pdPASS) {
-            printf("request was put inside dispatch queue!\r\n");
+        uint32_t active_time = 1;//;rand() % XTICKS_MAX;
+        uint8_t vehicle_num_to_dispatch = (rand() % MAX_NUM_REQUESTED_VEHICLES) + 1; // request num of vehicles can be only greater than zero
+        request req = { dep,vehicle_num_to_dispatch,active_time };
+        if ((retval_Send_To_Dispatch_Queue = xQueueSendToBack(DispatchQueueHandle, &req, DISPATCH_QUEUE_TIMEOUT)) == pdPASS) {
+            printf("generated request. request was put inside main queue! request: dep: %d, active time: %u, vehicle num: %u\r\n", dep, active_time, vehicle_num_to_dispatch);
+
         }
+        else {
+            printf("request couldnt enter main queue due to it is full or time passed!\r\n");
+        }
+
+
     }
 }
